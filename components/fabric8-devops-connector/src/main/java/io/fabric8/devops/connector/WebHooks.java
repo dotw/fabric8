@@ -24,7 +24,11 @@ import io.fabric8.repo.git.WebhookConfig;
 import io.fabric8.utils.Objects;
 import org.slf4j.Logger;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import static io.fabric8.utils.jaxrs.JsonHelper.toJson;
 
@@ -61,11 +65,35 @@ public class WebHooks {
                 }
                 log.info("Ignoring webhook " + url + " from: " + toJson(config));
             }
-        }
+        }        
         CreateWebhookDTO createWebhook = new CreateWebhookDTO();
         createWebhook.setType("gogs");
         WebhookConfig config = createWebhook.getConfig();
         config.setUrl(webhookUrl);
+        // get jenkins env
+        String jenkinsSecurityEnabled = System.getenv("JENKINS_SECURITY_ENABLED");
+        String jenkinsAccount = "";
+        String jenkinsAPIToken = "";
+        if ("true".contentEquals(jenkinsSecurityEnabled)) {
+        		jenkinsAccount = System.getenv("JENKINS_ACCOUNT");
+        		jenkinsAPIToken = System.getenv("JENKINS_API_TOKEN");	
+        		//replace webhook url using account info
+        		try {
+					URL url = new URL(webhookUrl);
+					StringBuilder webhookUrlWithUserInfo = new StringBuilder();
+					webhookUrlWithUserInfo.append(url.getProtocol()).append("://");
+					webhookUrlWithUserInfo.append(jenkinsAccount).append(":").append(jenkinsAPIToken);
+					webhookUrlWithUserInfo.append("@").append(url.getHost());
+					if (url.getPort() != -1) {
+						webhookUrlWithUserInfo.append(":").append(url.getPort());
+					}
+					webhookUrlWithUserInfo.append(url.getPath());
+					webhookUrlWithUserInfo.append("?").append(url.getQuery());
+					config.setUrl(webhookUrlWithUserInfo.toString());
+				} catch (MalformedURLException e) {
+					log.error(" Parsing webhookUrl error, url is:" + webhookUrl);
+				}
+        }
         config.setSecret(webhookSecret);
         WebHookDTO webhook = repoClient.createWebhook(gogsUser, repoName, createWebhook);
         if (log.isDebugEnabled()) {

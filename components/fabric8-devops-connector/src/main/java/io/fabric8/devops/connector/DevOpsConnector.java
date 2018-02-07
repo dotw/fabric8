@@ -103,6 +103,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1251,6 +1252,17 @@ public class DevOpsConnector {
             try {
                 URL url = new URL(jobUrl);
                 connection = (HttpURLConnection) url.openConnection();
+                // get jenkins account info
+                String jenkinsSecurityEnabled = System.getenv("JENKINS_SECURITY_ENABLED");
+                String jenkinsAccount = "";
+                String jenkinsAPIToken = "";
+                if ("true".contentEquals(jenkinsSecurityEnabled)) {
+                		jenkinsAccount = System.getenv("JENKINS_ACCOUNT");
+                		jenkinsAPIToken = System.getenv("JENKINS_API_TOKEN");
+                		Base64.Encoder encoder = Base64.getEncoder();
+                		String basicValue = encoder.encodeToString((jenkinsAccount.trim() + ":" + jenkinsAPIToken.trim()).getBytes("UTF-8"));
+                		connection.setRequestProperty("Authorization", "Basic " + basicValue);
+                }
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty("Content-Type", "text/xml");
                 connection.setDoOutput(true);
@@ -1583,5 +1595,37 @@ public class DevOpsConnector {
             return false;
         }
     }
+    
+	public static void main(String[] args) throws Exception {
+		URL url = new URL(
+				"http://jenkins.devopsns.9.112.244.115.nip.io:80/job/hzqi07/buildWithParameters?VERSION_PREFIX=1.0");
+		StringBuilder webhookUrlWithUserInfo = new StringBuilder();
+		webhookUrlWithUserInfo.append(url.getProtocol()).append("://");
+		webhookUrlWithUserInfo.append("admin:21dd95e2de83a792f1c9c92f0106ffff");
+		webhookUrlWithUserInfo.append("@").append(url.getHost());
+		if (url.getPort() != -1) {
+			webhookUrlWithUserInfo.append(":").append(url.getPort());
+		}
+		webhookUrlWithUserInfo.append(url.getPath());
+		webhookUrlWithUserInfo.append("?").append(url.getQuery());
+		System.out.println(webhookUrlWithUserInfo.toString());
+
+		url = new URL("http://jenkins.devopsns.9.112.244.115.nip.io/job/hzqi07/config.xml");
+		if (url.getUserInfo() == null) {
+			System.out.println(url.getPath());
+			System.out.println(url.getHost());
+			System.out.println(url.getPort());
+			System.out.println(url.getProtocol());
+			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			Base64.Encoder encoder = Base64.getEncoder();
+			String basicValue = encoder.encodeToString(("admin:21dd95e2de83a792f1c9c92f0106ffff").getBytes("UTF-8"));
+			connection.setRequestProperty("Authorization", "Basic " + basicValue);
+			connection.setRequestMethod("GET");
+			connection.setRequestProperty("Content-Type", "text/xml");
+			connection.setDoOutput(true);
+			System.out.println(connection.getResponseCode());
+			System.out.println(connection.getResponseMessage());
+		}
+	}
 
 }
